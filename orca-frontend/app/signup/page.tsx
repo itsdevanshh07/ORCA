@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Mail, Lock, User, Chrome, ArrowRight } from 'lucide-react'
+import { Mail, Lock, User, ArrowRight } from 'lucide-react'
 import { AuthCard } from '@/components/auth-card'
 
 const baseUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -37,33 +37,26 @@ export default function SignupPage() {
     setIsLoading(true)
     
     try {
+        if (!baseUrl) throw new Error('The API URL is not configured.')
         const res = await fetch(`${baseUrl}/api/auth/signup`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fullName, email, password }),
         });
 
-      const data = await res.json()
+      const data = await res.json().catch(() => ({}))
 
-      if (res.ok) {
+      if (res.ok && typeof data.token === 'string' && data.token.length > 0) {
         localStorage.setItem("orca_token", data.token)
-        router.push("/projects")
+        router.replace("/projects")
       } else {
         setError(data.error || 'Failed to create account')
       }
     } catch (err) {
-      setError('Failed to connect to the server. Is Spring Boot running?')
+      setError(err instanceof Error ? err.message : 'Could not connect to the ORCA API.')
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleGoogleSignUp = async () => {
-    setIsLoading(true)
-    // Simulate Google OAuth flow
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setIsLoading(false)
-    console.log('Google sign up initiated')
   }
 
   return (
@@ -185,26 +178,6 @@ export default function SignupPage() {
         </button>
       </form>
 
-      {/* Divider */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-zinc-200"></div>
-        </div>
-        <div className="relative flex justify-center text-xs">
-          <span className="px-2 bg-white text-zinc-500">or continue with</span>
-        </div>
-      </div>
-
-      {/* Google Sign Up Button */}
-      <button
-        type="button"
-        onClick={handleGoogleSignUp}
-        disabled={isLoading}
-        className="w-full flex items-center justify-center gap-3 bg-white border border-zinc-200 text-zinc-900 font-medium py-2.5 rounded-lg hover:bg-zinc-50 active:bg-zinc-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Chrome className="w-5 h-5" />
-        <span>Sign up with Google</span>
-      </button>
     </AuthCard>
   )
 }

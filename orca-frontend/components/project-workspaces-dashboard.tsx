@@ -28,23 +28,38 @@ export function ProjectWorkspacesDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [projectName, setProjectName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  const redirectToLogin = () => {
+    localStorage.removeItem('orca_token')
+    router.replace('/login')
+  }
 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
         setLoading(true)
-        const token = localStorage.getItem("orca_token") 
+        const token = localStorage.getItem("orca_token")
+        if (!token) {
+          redirectToLogin()
+          return
+        }
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL
+        if (!baseUrl) throw new Error('The API URL is not configured.')
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, {
+        const response = await fetch(`${baseUrl}/api/projects`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
-        
-        if (!response.ok) throw new Error('Failed to fetch projects')
-        const result = await response.json()
-        setProjects(result.data)
+        if (response.status === 401) {
+          redirectToLogin()
+          return
+        }
+        const result = await response.json().catch(() => ({}))
+        if (!response.ok) throw new Error(result.error || 'Could not load projects.')
+        setProjects(Array.isArray(result.data) ? result.data : [])
         setError(null)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch projects')
@@ -57,11 +72,16 @@ export function ProjectWorkspacesDashboard() {
     fetchProjects()
   }, [])
 
-  const handleCopyApiKey = (e: React.MouseEvent, projectId: string, apiKey: string) => {
+  const handleCopyApiKey = async (e: React.MouseEvent, projectId: string, apiKey: string) => {
     e.stopPropagation()
-    navigator.clipboard.writeText(apiKey)
-    setCopiedId(projectId)
-    setTimeout(() => setCopiedId(null), 2000)
+    try {
+      await navigator.clipboard.writeText(apiKey)
+      setCopiedId(projectId)
+      setTimeout(() => setCopiedId(null), 2000)
+      setActionError('')
+    } catch {
+      setActionError('Could not copy the API key. Check browser clipboard permissions.')
+    }
   }
 
   const handleRowClick = (projectId: string) => {
@@ -74,9 +94,15 @@ export function ProjectWorkspacesDashboard() {
 
     try {
       setIsCreating(true)
-      const token = localStorage.getItem("orca_token") 
+      const token = localStorage.getItem("orca_token")
+      if (!token) {
+        redirectToLogin()
+        return
+      }
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL
+      if (!baseUrl) throw new Error('The API URL is not configured.')
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/projects`, {
+      const response = await fetch(`${baseUrl}/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,14 +111,20 @@ export function ProjectWorkspacesDashboard() {
         body: JSON.stringify({ name: projectName }),
       });
 
-      if (!response.ok) throw new Error('Failed to create project')
-      const result = await response.json()
+      if (response.status === 401) {
+        redirectToLogin()
+        return
+      }
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Could not create project.')
+      if (!result.data?.id || !result.data?.apiKey) throw new Error('The API returned an incomplete project.')
 
-      setProjects([...projects, result.data])
+      setProjects((current) => [...current, result.data])
+      setActionError('')
       setProjectName('')
       setIsModalOpen(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project')
+      setActionError(err instanceof Error ? err.message : 'Could not create project.')
     } finally {
       setIsCreating(false)
     }
@@ -120,19 +152,28 @@ export function ProjectWorkspacesDashboard() {
                 Manage your projects and API integrations
               </p>
             </div>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-black hover:bg-zinc-900 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Create Project
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 bg-black hover:bg-zinc-900 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Create Project
+              </button>
+              <button
+                onClick={redirectToLogin}
+                className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              >
+                Log out
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-8">
+        {actionError && <p role="alert" className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
         {/* Projects Card */}
         <div className="bg-white rounded-lg border border-zinc-200 shadow-sm overflow-hidden">
           {/* Table Header */}
@@ -164,7 +205,16 @@ export function ProjectWorkspacesDashboard() {
             {projects.map((project) => (
               <div
                 key={project.id}
+                role="link"
+                tabIndex={0}
+                aria-label={`Open ${project.name} dashboard`}
                 onClick={() => handleRowClick(project.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    handleRowClick(project.id)
+                  }
+                }}
                 className={`group cursor-pointer transition-colors duration-150 ${
                   selectedProject === project.id
                     ? 'bg-zinc-100'

@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState, Fragment } from "react"
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react"
 import { Hexagon, X } from "lucide-react"
 import {
   AreaChart,
@@ -49,10 +49,12 @@ function Header({
   projectName,
   selectedTimeframe, 
   onTimeframeChange,
+  onLogout,
 }: { 
   projectName: string
   selectedTimeframe: TimeframeOption
   onTimeframeChange: (tf: TimeframeOption) => void
+  onLogout: () => void
 }) {
   return (
     <header className="border-b border-zinc-200 px-6 py-4 flex items-center justify-between bg-white">
@@ -84,6 +86,9 @@ function Header({
             {option.label}
           </button>
         ))}
+        <button onClick={onLogout} className="text-xs font-medium text-zinc-600 hover:text-zinc-950">
+          Log out
+        </button>
       </div>
     </header>
   )
@@ -215,7 +220,7 @@ function ErrorChart({ data, domain }: { data: any[], domain: any[] }) {
   )
 }
 
-function HealingTable({ records, onRevert }: { records: any[], onRevert: (id: string) => void }) {
+function HealingTable({ records, onRevert, revertingId }: { records: any[], onRevert: (id: string) => void, revertingId: string | null }) {
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
@@ -230,7 +235,8 @@ function HealingTable({ records, onRevert }: { records: any[], onRevert: (id: st
     <div className="border border-zinc-200 bg-white overflow-hidden">
       <div className="p-4 border-b border-zinc-200 bg-zinc-50 flex justify-between items-center">
         <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-widest">Surgery Audit Log</h3>
-        <input 
+        <input
+          aria-label="Search surgery logs"
           type="text" 
           placeholder="Search logs..." 
           className="text-xs border border-zinc-200 px-3 py-2 w-64 focus:ring-1 focus:ring-zinc-900 outline-none rounded-none"
@@ -248,11 +254,23 @@ function HealingTable({ records, onRevert }: { records: any[], onRevert: (id: st
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
+            {displayRecords.length === 0 && (
+              <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-zinc-500">No healing records match this view.</td></tr>
+            )}
             {displayRecords.map((record: any) => (
               <Fragment key={record.id}>
                 <tr 
+                  tabIndex={0}
+                  role="button"
+                  aria-expanded={expandedRow === record.id}
                   className={`cursor-pointer transition-colors ${expandedRow === record.id ? 'bg-zinc-50' : 'hover:bg-zinc-50/50'}`}
                   onClick={() => setExpandedRow(expandedRow === record.id ? null : record.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setExpandedRow(expandedRow === record.id ? null : record.id)
+                    }
+                  }}
                 >
                   <td className="px-4 py-4 text-[10px] text-zinc-400">{expandedRow === record.id ? "▼" : "▶"}</td>
                   <td className="px-4 py-4 text-xs font-mono text-zinc-500">{new Date(record.timestamp).toLocaleTimeString()}</td>
@@ -284,10 +302,11 @@ function HealingTable({ records, onRevert }: { records: any[], onRevert: (id: st
                       </div>
                       <div className="mt-6 flex justify-end">
                         <button 
-                          onClick={() => onRevert(record.id)}
+                          onClick={(event) => { event.stopPropagation(); onRevert(record.id) }}
+                          disabled={record.status === 'REJECTED_BY_DEV' || revertingId === record.id}
                           className="text-[10px] font-bold text-zinc-500 hover:text-zinc-900 uppercase tracking-widest border border-zinc-300 px-4 py-2 hover:border-zinc-900 transition-all"
                         >
-                          Revert Surgery
+                          {record.status === 'REJECTED_BY_DEV' ? 'Reverted' : revertingId === record.id ? 'Reverting…' : 'Revert Surgery'}
                         </button>
                       </div>
                     </td>
@@ -305,79 +324,97 @@ function HealingTable({ records, onRevert }: { records: any[], onRevert: (id: st
 export default function Dashboard() {
   const params = useParams()
   const router = useRouter() 
-  const projectId = params.projectId
+  const projectId = String(params.projectId || '')
   const [stats, setStats] = useState<any>(null)
   const [selectedTimeframe, setSelectedTimeframe] = useState<TimeframeOption>(TIMEFRAME_OPTIONS[5])
-  const [healingRecords, setHealingRecords] = useState<any[]>([]) 
+  const [healingRecords, setHealingRecords] = useState<any[]>([])
   const [liveTraffic, setLiveTraffic] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [revertingId, setRevertingId] = useState<string | null>(null)
 
-  const fetchRecords = async () => {
-    const rawToken = localStorage.getItem("orca_token") || ""
-    const cleanToken = rawToken.replace(/^"|"$/g, '').trim()
-    if (!cleanToken) return
+  const redirectToLogin = useCallback(() => {
+    localStorage.removeItem('orca_token')
+    router.replace('/login')
+  }, [router])
 
+  const fetchDashboardData = useCallback(async (showLoading = false) => {
+    const token = localStorage.getItem('orca_token')
+    if (!token) {
+      redirectToLogin()
+      return
+    }
+    if (!process.env.NEXT_PUBLIC_API_URL) {
+      setError('The API URL is not configured.')
+      setLoading(false)
+      return
+    }
+    if (showLoading) setLoading(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-
-      const surgeryRes = await fetch(`${baseUrl}/api/metrics?projectId=${projectId}`, {
-        headers: { 'Authorization': `Bearer ${cleanToken}` }
-      })
-      if (surgeryRes.ok) setHealingRecords(await surgeryRes.json())
-
-      const trafficRes = await fetch(`${baseUrl}/api/orca/traffic`, {
-        headers: { 'Authorization': `Bearer ${cleanToken}` }
-      })
-      if (trafficRes.ok) setLiveTraffic(await trafficRes.json())
-    } catch (err) {}
-  } // <--- Added the missing closing brace here
-
-  // 2. Now call hooks at the top level
-  useEffect(() => {
-    if (projectId) {
-      fetchRecords()
-      const interval = setInterval(fetchRecords, 2000)
-      return () => clearInterval(interval)
+      const headers = { Authorization: `Bearer ${token}` }
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL
+      const [metricsResponse, trafficResponse, statsResponse] = await Promise.all([
+        fetch(`${baseUrl}/api/metrics?projectId=${encodeURIComponent(projectId)}`, { headers }),
+        fetch(`${baseUrl}/api/orca/traffic`, { headers }),
+        fetch(`${baseUrl}/api/orca/stats?projectId=${encodeURIComponent(projectId)}`, { headers }),
+      ])
+      if ([metricsResponse, trafficResponse, statsResponse].some((response) => response.status === 401)) {
+        redirectToLogin()
+        return
+      }
+      const [metrics, traffic, projectStats] = await Promise.all([
+        metricsResponse.json().catch(() => ({})),
+        trafficResponse.json().catch(() => ({})),
+        statsResponse.json().catch(() => ({})),
+      ])
+      if (!metricsResponse.ok || !trafficResponse.ok || !statsResponse.ok) {
+        throw new Error(metrics.error || traffic.error || projectStats.error || 'Could not load dashboard data.')
+      }
+      if (!Array.isArray(metrics) || !Array.isArray(traffic) || !projectStats.projectName) {
+        throw new Error(projectStats.error || 'The project dashboard data is unavailable.')
+      }
+      setHealingRecords(metrics)
+      setLiveTraffic(traffic)
+      setStats(projectStats)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load dashboard data.')
+    } finally {
+      setLoading(false)
     }
-  }, [projectId])
+  }, [projectId, redirectToLogin])
 
   useEffect(() => {
-    const fetchDashboardStats = async () => {
-      const rawToken = localStorage.getItem("orca_token") || ""
-      const cleanToken = rawToken.replace(/^"|"$/g, '').trim()
-      if (!cleanToken) return router.push("/login")
-
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_API_URL;
-        const response = await fetch(`${baseUrl}/api/orca/stats?projectId=${projectId}`, {
-          headers: { 'Authorization': `Bearer ${cleanToken}` }
-        })
-        
-        if (response.status === 401) return
-        if (response.ok) {
-          const data = await response.json()
-          if (data && data.projectName) setStats(data)
-        }
-      } catch (err) {}
-    }
-    if (projectId) fetchDashboardStats()
-  }, [projectId, router])
+    if (!projectId) return
+    void fetchDashboardData(true)
+    const interval = window.setInterval(() => void fetchDashboardData(), 10_000)
+    return () => window.clearInterval(interval)
+  }, [projectId, fetchDashboardData])
 
   const handleRevert = async (id: string) => {
-    const rawToken = localStorage.getItem("orca_token") || ""
-    const cleanToken = rawToken.replace(/^"|"$/g, '').trim()
-    if (!cleanToken) return
-    
+    const token = localStorage.getItem('orca_token')
+    if (!token) return redirectToLogin()
+    setRevertingId(id)
+    setError('')
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!baseUrl) throw new Error('The API URL is not configured.')
       const response = await fetch(`${baseUrl}/api/surgeries/${id}/revert`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${cleanToken}` }
+        headers: { 'Authorization': `Bearer ${token}` }
       })
-      
+      if (response.status === 401) return redirectToLogin()
       if (response.ok) {
         setHealingRecords((records) => records.map((r) => (r.id === id ? { ...r, status: "REJECTED_BY_DEV" } : r)))
+      } else {
+        const result = await response.json().catch(() => ({}))
+        throw new Error(result.error || 'Could not revert this surgery.')
       }
-    } catch (err) {}
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not revert this surgery.')
+    } finally {
+      setRevertingId(null)
+    }
   }
 
   const chartDomain = useMemo(() => {
@@ -433,13 +470,16 @@ export default function Dashboard() {
         projectName={stats?.projectName || "..."}
         selectedTimeframe={selectedTimeframe} 
         onTimeframeChange={setSelectedTimeframe}
+        onLogout={redirectToLogin}
       />
       <main className="p-6 max-w-[1600px] mx-auto space-y-6">
+        {loading && <p role="status" className="text-sm text-zinc-600">Loading dashboard…</p>}
+        {error && <p role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ErrorChart data={realChartData} domain={chartDomain} />
           <OverallLatencyChart data={realChartData} domain={chartDomain} />
         </div>
-        <HealingTable records={healingRecords} onRevert={handleRevert} />
+        <HealingTable records={healingRecords} onRevert={handleRevert} revertingId={revertingId} />
       </main>
     </div>
   )
