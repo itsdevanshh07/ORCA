@@ -17,6 +17,9 @@ orca-api/target/
 orca-api/log/
 orca-api/logs/
 orca-api/**/*.log
+*.log
+hs_err_pid*
+replay_pid*
 
 # =========================
 # orca-frontend (Next.js / Node)

@@ -29,6 +29,8 @@ public class ApiKeyFilter implements WebFilter {
             path.startsWith("/api/auth/") ||
             path.startsWith("/api/projects") ||
             path.startsWith("/api/orca") || 
+            path.equals("/actuator/health") ||
+            path.startsWith("/actuator/health/") ||
             exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
             return chain.filter(exchange);
         }

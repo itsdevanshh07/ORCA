@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -23,9 +24,9 @@ public class AiHealingService {
     @Value("${orca.healing.timeout:PT25S}")
     private Duration timeout;
 
-    public AiHealingService(ObjectProvider<ChatClient.Builder> builders) {
-        ChatClient.Builder builder = builders.getIfAvailable();
-        this.chatClient = builder == null ? null : builder.build();
+    public AiHealingService(ObjectProvider<ChatModel> models) {
+        ChatModel model = models.getIfAvailable();
+        this.chatClient = model == null ? null : ChatClient.create(model);
     }
 
     public String getHealedMapping(String brokenJson, String missingFields) {
