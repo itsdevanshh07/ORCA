@@ -1,5 +1,8 @@
 # O.R.C.A.
-
+## 👥 Authors & Team
+* **Devansh Dhyani** ([@itsdevansh007](https://github.com/itsdevansh007)) — Backend Gateway (Spring Cloud Gateway, Gemini SDK Integration, Security)
+* **Divyansh** ([@Codivy4706](https://github.com/Codivy4706)) — Frontend Dashboard & API Metrics Analytics
+  
 O.R.C.A. (Operational Resilience & Cloud Adaptation) is a full-stack API gateway prototype. Its Spring Boot/WebFlux API proxies downstream JSON APIs, validates responses against a schema, and uses Gemini to create and cache a repair when fields drift. A Next.js dashboard supports signup, login, project/API-key management, healing metrics, and reverting a repair.
 
 ## Stack
