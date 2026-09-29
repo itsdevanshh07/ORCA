@@ -74,7 +74,7 @@ function Navbar({ onOpenDashboard, onOpenSignup }) {
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className={`fixed w-full z-50 transition-all duration-300 ${scrolled ? 'bg-navy-900/80 backdrop-blur-md border-b border-white/5 py-4' : 'bg-transparent py-6'}`}
     >
-      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center gap-3">
         <div className="flex items-center gap-2 cursor-pointer">
           <LogoAnimated className="h-8" />
           <span className="text-xl font-bold tracking-tight text-white">ORCA</span>
@@ -85,7 +85,7 @@ function Navbar({ onOpenDashboard, onOpenSignup }) {
           <a href="#features" className="hover:text-neon-blue transition-colors">Features</a>
           <a href="#company" className="hover:text-neon-blue transition-colors">Company</a>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button onClick={onOpenDashboard} className="hidden sm:block text-sm font-medium text-slate-300 hover:text-white transition-colors">Sign in</button>
           <button onClick={onOpenSignup} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-[0_0_15px_rgba(0,246,255,0.3)] hover:border-neon-blue/50">
             Create account
@@ -102,7 +102,7 @@ function Hero({ onOpenDashboard, onOpenSignup }) {
   const opacity = useTransform(scrollY, [0, 400], [1, 0]);
 
   return (
-    <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
+    <section className="relative min-h-screen flex items-center py-24 sm:pt-20 sm:pb-12 overflow-hidden">
       {/* Background Animated Grid & Glows */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[800px] h-[800px] bg-neon-blue/20 rounded-full blur-[120px] opacity-40 mix-blend-screen" />
@@ -110,7 +110,7 @@ function Hero({ onOpenDashboard, onOpenSignup }) {
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_40%,black_10%,transparent_100%)]" />
       </div>
 
-      <motion.div style={{ y: y1, opacity }} className="max-w-7xl mx-auto px-6 relative z-10 w-full grid lg:grid-cols-2 gap-16 items-center">
+      <motion.div style={{ y: y1, opacity }} className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 w-full grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
         <div className="space-y-8">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -129,7 +129,7 @@ function Hero({ onOpenDashboard, onOpenSignup }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="text-6xl md:text-7xl font-extrabold tracking-tighter leading-[1.1] text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/40"
+            className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tighter leading-[1.1] text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/40"
           >
             APIs break.<br/>
             <span className="text-glow bg-clip-text text-transparent bg-gradient-to-r from-neon-blue to-neon-purple">
@@ -187,10 +187,10 @@ function Hero({ onOpenDashboard, onOpenSignup }) {
 
 function ProblemSolution() {
   return (
-    <section className="py-32 relative z-10" id="problem">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="py-20 sm:py-32 relative z-10" id="problem">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-20">
-          <h2 className="text-4xl font-bold tracking-tight text-white mb-6">The old way is brittle.</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-6">The old way is brittle.</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
             Traditional API gateways just route traffic. When schemas evolve or microservices drift, requests fail. You spend hours debugging incidents instead of shipping features.
           </p>
@@ -199,7 +199,7 @@ function ProblemSolution() {
         <div className="grid md:grid-cols-2 gap-8">
           <motion.div 
             whileHover={{ y: -5 }}
-            className="glass-card rounded-3xl p-10 relative overflow-hidden group border-red-500/20"
+            className="glass-card rounded-3xl p-6 sm:p-10 relative overflow-hidden group border-red-500/20"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500/0 via-red-500/50 to-red-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center mb-6">
@@ -215,7 +215,7 @@ function ProblemSolution() {
 
           <motion.div 
             whileHover={{ y: -5 }}
-            className="glass-card rounded-3xl p-10 relative overflow-hidden group border-neon-blue/20"
+            className="glass-card rounded-3xl p-6 sm:p-10 relative overflow-hidden group border-neon-blue/20"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-blue/0 via-neon-blue/50 to-neon-blue/0 opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="w-12 h-12 rounded-xl bg-neon-blue/10 flex items-center justify-center mb-6">
@@ -242,10 +242,10 @@ function HowItWorks() {
   ];
 
   return (
-    <section className="py-32 relative z-10 bg-black/20" id="how-it-works">
-      <div className="max-w-7xl mx-auto px-6">
+    <section className="py-20 sm:py-32 relative z-10 bg-black/20" id="how-it-works">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-20">
-          <h2 className="text-4xl font-bold tracking-tight text-white mb-6">Self-Healing Pipeline</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-6">Self-Healing Pipeline</h2>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
             Powered by a specialized LLM trained on millions of API specifications, ORCA understands the intent of the payload, not just the syntax.
           </p>
@@ -286,10 +286,10 @@ function Features() {
   ];
 
   return (
-    <section className="py-32 relative z-10" id="features">
-      <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-12 gap-16 items-center">
+    <section className="py-20 sm:py-32 relative z-10" id="features">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 grid lg:grid-cols-12 gap-10 lg:gap-16 items-center">
         <div className="lg:col-span-5 space-y-6">
-          <h2 className="text-4xl font-bold tracking-tight text-white">Infrastructure that thinks.</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">Infrastructure that thinks.</h2>
           <p className="text-lg text-slate-400">
             ORCA doesn't just pass packets. It acts as an intelligent middleware layer. It understands semantic versioning, nested JSON structures, and gRPC definitions seamlessly.
           </p>
@@ -320,11 +320,11 @@ function Features() {
 
 function CTA({ onOpenDashboard, onOpenSignup }) {
   return (
-    <section className="py-32 relative z-10 overflow-hidden">
+    <section className="py-20 sm:py-32 relative z-10 overflow-hidden">
       <div className="absolute inset-0 bg-neon-blue/5" />
       <div className="absolute bottom-0 left-[50%] -translate-x-1/2 w-full h-1/2 bg-gradient-to-t from-neon-blue/10 to-transparent" />
       
-      <div className="max-w-4xl mx-auto px-6 text-center relative z-10">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center relative z-10">
         <motion.img 
           initial={{ opacity: 0, y: 50 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -333,7 +333,7 @@ function CTA({ onOpenDashboard, onOpenSignup }) {
           alt="ORCA Mark" 
           className="h-20 max-w-[80px] mx-auto mb-8 drop-shadow-[0_0_20px_rgba(0,246,255,0.4)]"
         />
-        <h2 className="text-5xl font-extrabold tracking-tight text-white mb-6">
+        <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-6">
           Ready to stop debugging APIs?
         </h2>
         <p className="text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
@@ -354,9 +354,9 @@ function CTA({ onOpenDashboard, onOpenSignup }) {
 
 function Footer() {
   return (
-    <footer className="border-t border-white/5 bg-navy-900/50 pt-16 pb-8 relative z-10">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid md:grid-cols-4 gap-8 mb-16">
+    <footer className="border-t border-white/5 bg-navy-900/50 pt-12 sm:pt-16 pb-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 mb-16">
           <div className="md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
               <img src="/orca_icon.png" alt="ORCA" className="h-6" />
@@ -431,7 +431,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-900 selection:bg-neon-purple/30 selection:text-white">
+    <div className="min-h-screen w-full overflow-x-hidden bg-navy-900 selection:bg-neon-purple/30 selection:text-white">
       <FloatingHeartsBackground />
       <Navbar onOpenDashboard={openDashboard} onOpenSignup={openSignup} />
       <main>

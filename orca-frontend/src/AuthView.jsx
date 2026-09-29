@@ -39,8 +39,8 @@ export default function AuthView({ initialMode = 'login', onBack, onAuthenticate
 
   const signup = mode === 'signup'
   return (
-    <main className="min-h-screen bg-navy-900 px-5 py-10 flex items-center justify-center">
-      <section className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950/80 p-8 shadow-2xl">
+    <main className="min-h-screen bg-navy-900 px-4 py-6 sm:px-5 sm:py-10 flex items-center justify-center">
+      <section className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-2xl sm:p-8">
         <button onClick={onBack} className="mb-6 inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white"><ArrowLeft size={16} /> Back</button>
         <p className="text-sm font-semibold tracking-[0.25em] text-neon-blue">O.R.C.A.</p>
         <h1 className="mt-2 text-3xl font-bold text-white">{signup ? 'Create your account' : 'Welcome back'}</h1>
