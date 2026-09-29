@@ -332,6 +332,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [revertingId, setRevertingId] = useState<string | null>(null)
+  const [healingDemoLoading, setHealingDemoLoading] = useState(false)
+  const [healingDemoError, setHealingDemoError] = useState('')
+  const [healingDemoResult, setHealingDemoResult] = useState('')
 
   const redirectToLogin = useCallback(() => {
     localStorage.removeItem('orca_token')
@@ -417,6 +420,47 @@ export default function Dashboard() {
     }
   }
 
+  const runHealingDemo = async () => {
+    const token = localStorage.getItem('orca_token')
+    if (!token) return redirectToLogin()
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL
+    if (!baseUrl) {
+      setHealingDemoError('The API URL is not configured.')
+      return
+    }
+
+    setHealingDemoLoading(true)
+    setHealingDemoError('')
+    setHealingDemoResult('')
+    try {
+      const projectsResponse = await fetch(`${baseUrl}/api/projects`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (projectsResponse.status === 401) return redirectToLogin()
+      const projectsResult = await projectsResponse.json().catch(() => ({}))
+      if (!projectsResponse.ok) {
+        throw new Error(projectsResult.error || 'Could not load this project’s API key.')
+      }
+      const project = (Array.isArray(projectsResult.data) ? projectsResult.data : [])
+        .find((item: any) => String(item.id) === projectId)
+      if (!project?.apiKey) throw new Error('This project has no API key. Return to Project Workspaces and create a project key.')
+
+      const response = await fetch(`${baseUrl}/posts/1`, {
+        headers: { 'x-api-key': project.apiKey },
+      })
+      const responseBody = await response.text()
+      if (!response.ok) {
+        throw new Error(`The proxy returned HTTP ${response.status}. Check the API key and Render service logs.`)
+      }
+      setHealingDemoResult(responseBody)
+      await fetchDashboardData()
+    } catch (err) {
+      setHealingDemoError(err instanceof Error ? err.message : 'The healing request failed.')
+    } finally {
+      setHealingDemoLoading(false)
+    }
+  }
+
   const chartDomain = useMemo(() => {
     const now = new Date().getTime()
     let multiplier = 3600000
@@ -475,6 +519,18 @@ export default function Dashboard() {
       <main className="p-6 max-w-[1600px] mx-auto space-y-6">
         {loading && <p role="status" className="text-sm text-zinc-600">Loading dashboard…</p>}
         {error && <p role="alert" className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+        <section className="border border-zinc-200 bg-white p-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">Try schema healing</h2>
+            <p className="mt-1 text-sm text-zinc-600">Send a sample request through your project key. ORCA checks the downstream response, asks Gemini to repair schema drift, and records the result here.</p>
+            <p className="mt-1 text-xs text-zinc-500">GET {process.env.NEXT_PUBLIC_API_URL || 'API_URL'}/posts/1</p>
+          </div>
+          <button onClick={runHealingDemo} disabled={healingDemoLoading} className="shrink-0 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:cursor-wait disabled:bg-zinc-400">
+            {healingDemoLoading ? 'Sending request…' : 'Run healing check'}
+          </button>
+          {healingDemoError && <p role="alert" className="basis-full rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{healingDemoError}</p>}
+          {healingDemoResult && <pre className="basis-full max-h-48 overflow-auto rounded bg-zinc-50 p-3 text-xs text-zinc-700">{healingDemoResult}</pre>}
+        </section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ErrorChart data={realChartData} domain={chartDomain} />
           <OverallLatencyChart data={realChartData} domain={chartDomain} />
