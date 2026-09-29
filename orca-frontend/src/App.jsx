@@ -58,7 +58,7 @@ const LogoAnimated = ({ className = "h-8" }) => (
   </motion.div>
 );
 
-function Navbar({ onOpenDashboard }) {
+function Navbar({ onOpenDashboard, onOpenSignup }) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -86,9 +86,9 @@ function Navbar({ onOpenDashboard }) {
           <a href="#company" className="hover:text-neon-blue transition-colors">Company</a>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={onOpenDashboard} className="hidden sm:block text-sm font-medium text-slate-300 hover:text-white transition-colors">Dashboard</button>
-          <button onClick={onOpenDashboard} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-[0_0_15px_rgba(0,246,255,0.3)] hover:border-neon-blue/50">
-            Open Recovery Insights
+          <button onClick={onOpenDashboard} className="hidden sm:block text-sm font-medium text-slate-300 hover:text-white transition-colors">Sign in</button>
+          <button onClick={onOpenSignup} className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-5 py-2 rounded-full text-sm font-medium transition-all hover:shadow-[0_0_15px_rgba(0,246,255,0.3)] hover:border-neon-blue/50">
+            Create account
           </button>
         </div>
       </div>
@@ -96,7 +96,7 @@ function Navbar({ onOpenDashboard }) {
   );
 }
 
-function Hero({ onOpenDashboard }) {
+function Hero({ onOpenDashboard, onOpenSignup }) {
   const { scrollY } = useScroll();
   const y1 = useTransform(scrollY, [0, 1000], [0, 200]);
   const opacity = useTransform(scrollY, [0, 400], [1, 0]);
@@ -152,11 +152,11 @@ function Hero({ onOpenDashboard }) {
             transition={{ duration: 0.6, delay: 0.5 }}
             className="flex flex-wrap items-center gap-4"
           >
-            <button onClick={onOpenDashboard} className="h-12 px-8 rounded-full bg-white text-navy-900 font-semibold flex items-center gap-2 hover:bg-slate-200 transition-colors">
-              Get Started <ArrowRight className="w-4 h-4" />
+            <button onClick={onOpenSignup} className="h-12 px-8 rounded-full bg-white text-navy-900 font-semibold flex items-center gap-2 hover:bg-slate-200 transition-colors">
+              Create account <ArrowRight className="w-4 h-4" />
             </button>
-            <button onClick={onOpenDashboard} className="h-12 px-8 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors">
-              Read Docs
+            <button onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })} className="h-12 px-8 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors">
+              How it works
             </button>
           </motion.div>
         </div>
@@ -318,7 +318,7 @@ function Features() {
   );
 }
 
-function CTA({ onOpenDashboard }) {
+function CTA({ onOpenDashboard, onOpenSignup }) {
   return (
     <section className="py-32 relative z-10 overflow-hidden">
       <div className="absolute inset-0 bg-neon-blue/5" />
@@ -340,8 +340,8 @@ function CTA({ onOpenDashboard }) {
           Join cutting-edge engineering teams that use ORCA to maintain 99.999% uptime during complex migrations.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <button onClick={onOpenDashboard} className="h-14 px-8 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold text-lg hover:shadow-[0_0_30px_rgba(176,38,255,0.4)] transition-shadow">
-            Start Free Trial
+          <button onClick={onOpenSignup} className="h-14 px-8 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple text-white font-bold text-lg hover:shadow-[0_0_30px_rgba(176,38,255,0.4)] transition-shadow">
+            Create your ORCA account
           </button>
           <button onClick={() => window.location.href='mailto:sales@orca.dev'} className="h-14 px-8 rounded-full bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-colors">
             Contact Sales
@@ -405,34 +405,41 @@ function Footer() {
 }
 
 import ApiDashboard from './ApiDashboard';
+import AuthView from './AuthView';
 
 export default function App() {
   const [currentView, setCurrentView] = useState('landing');
+  const [authMode, setAuthMode] = useState('login');
+
+  const openDashboard = () => {
+    if (localStorage.getItem('orca_token')) setCurrentView('dashboard');
+    else { setAuthMode('login'); setCurrentView('auth'); }
+  };
+  const openSignup = () => { setAuthMode('signup'); setCurrentView('auth'); };
+  const signOut = () => {
+    localStorage.removeItem('orca_token');
+    setAuthMode('login');
+    setCurrentView('auth');
+  };
+
+  if (currentView === 'auth') {
+    return <AuthView initialMode={authMode} onBack={() => setCurrentView('landing')} onAuthenticated={() => setCurrentView('dashboard')} />;
+  }
 
   if (currentView === 'dashboard') {
-    return (
-      <div className="relative">
-        <button 
-          onClick={() => setCurrentView('landing')}
-          className="absolute z-50 top-3 right-6 bg-navy-900 border border-neon-blue text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-neon-blue hover:text-navy-900 transition-colors"
-        >
-          Exit Dashboard
-        </button>
-        <ApiDashboard />
-      </div>
-    );
+    return <ApiDashboard onExit={() => setCurrentView('landing')} onSignOut={signOut} />;
   }
 
   return (
     <div className="min-h-screen bg-navy-900 selection:bg-neon-purple/30 selection:text-white">
       <FloatingHeartsBackground />
-      <Navbar onOpenDashboard={() => setCurrentView('dashboard')} />
+      <Navbar onOpenDashboard={openDashboard} onOpenSignup={openSignup} />
       <main>
-        <Hero onOpenDashboard={() => setCurrentView('dashboard')} />
+        <Hero onOpenDashboard={openDashboard} onOpenSignup={openSignup} />
         <ProblemSolution />
         <HowItWorks />
         <Features />
-        <CTA onOpenDashboard={() => setCurrentView('dashboard')} />
+        <CTA onOpenDashboard={openDashboard} onOpenSignup={openSignup} />
       </main>
       <Footer />
     </div>
