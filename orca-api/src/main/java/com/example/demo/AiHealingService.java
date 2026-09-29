@@ -12,12 +12,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Slf4j
 @Service
 public class AiHealingService {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final int MAX_UNAVAILABLE_RETRIES = 2;
+    private static final long RETRY_DELAY_MILLIS = 1_000;
 
     private final ChatClient chatClient;
 
@@ -44,10 +47,8 @@ public class AiHealingService {
             CRITICAL: Return ONLY a valid JSON object. No markdown or conversational text.
             """.formatted(missingFields, brokenJson);
 
-        CompletableFuture<String> request = CompletableFuture.supplyAsync(() -> chatClient.prompt()
-                .user(prompt)
-                .call()
-                .content());
+        CompletableFuture<String> request = CompletableFuture.supplyAsync(() -> callWithUnavailableRetries(
+                () -> chatClient.prompt().user(prompt).call().content(), Thread::sleep));
         try {
             String result = request.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             return parseJsonObject(result);
@@ -56,6 +57,56 @@ public class AiHealingService {
             log.warn("Gemini healing unavailable; preserving downstream payload ({})", e.getClass().getSimpleName());
             return null;
         }
+    }
+
+    static String callWithUnavailableRetries(Supplier<String> call, Sleeper sleeper) {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return call.get();
+            } catch (RuntimeException error) {
+                if (!isUnavailable(error) || attempt >= MAX_UNAVAILABLE_RETRIES) {
+                    throw error;
+                }
+                log.warn("Gemini returned 503/UNAVAILABLE; retrying ({}/{}).", attempt + 1,
+                        MAX_UNAVAILABLE_RETRIES);
+                try {
+                    sleeper.sleep(RETRY_DELAY_MILLIS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("Interrupted while waiting to retry Gemini", interrupted);
+                }
+            }
+        }
+    }
+
+    static boolean isUnavailable(Throwable error) {
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            if (current instanceof com.google.genai.errors.ApiException apiException) {
+                return apiException.code() == 503 || "UNAVAILABLE".equalsIgnoreCase(apiException.status());
+            }
+            if (current instanceof org.springframework.web.reactive.function.client.WebClientResponseException response) {
+                return response.getStatusCode().value() == 503;
+            }
+            if (current instanceof org.springframework.web.client.HttpStatusCodeException response) {
+                return response.getStatusCode().value() == 503;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                if (message.matches("(?is).*\\b(?:400|403|429)\\b.*")) {
+                    return false;
+                }
+                if (message.matches("(?is).*\\b503\\b.*")
+                        || message.matches("(?is).*\\bUNAVAILABLE\\b.*")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    @FunctionalInterface
+    interface Sleeper {
+        void sleep(long millis) throws InterruptedException;
     }
 
     static String parseJsonObject(String raw) {
