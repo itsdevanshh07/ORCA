@@ -3,15 +3,11 @@
 # =========================
 Checklist.txt
 desktop.ini
-*.png
-*.ico
-*.webp
-*.jpg
-*.jpeg
 
 # Environment Variables (CRITICAL)
 .env
 .env.*
+!.env.example
 *.local
 
 # =========================
@@ -26,6 +22,7 @@ orca-api/**/*.log
 # orca-frontend (Next.js / Node)
 # =========================
 orca-frontend/node_modules/
+orca-frontend/logs/
 orca-frontend/.next/
 orca-frontend/out/
 orca-frontend/build/

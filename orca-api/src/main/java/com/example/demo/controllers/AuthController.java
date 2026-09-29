@@ -4,6 +4,7 @@ import com.example.demo.models.User;
 import com.example.demo.repositories.UserRepository;
 import com.example.demo.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +24,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     // ==========================================
     // 1. LOGIN LOGIC
@@ -51,12 +55,10 @@ public class AuthController {
 
             User dbUser = userOpt.get();
 
-            if (!dbUser.getPassword().equals(request.getPassword())) {
-                System.out.println("REJECTED: Passwords do not match!");
+            if (!passwordEncoder.matches(request.getPassword(), dbUser.getPassword())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid Credentials"));
             }
 
-            System.out.println("APPROVED: Generating Token for " + dbUser.getUsername());
             String token = jwtUtil.generateToken(dbUser.getUsername()); 
             return ResponseEntity.ok(Map.<String, String>of("token", token));
             
@@ -101,12 +103,10 @@ public class AuthController {
             newUser.setFullName(request.getFullName());
             newUser.setEmail(request.getEmail());
             newUser.setUsername(generatedUsername); 
-            newUser.setPassword(request.getPassword()); // Note: Plaintext for now, add Bcrypt later!
+            newUser.setPassword(passwordEncoder.encode(request.getPassword()));
             newUser.setRole("ADMIN"); 
 
             userRepository.save(newUser);
-            System.out.println("SUCCESS: Clean user saved! Username: " + generatedUsername);
-
             String token = jwtUtil.generateToken(newUser.getUsername());
             return ResponseEntity.ok(Map.of("token", token));
             

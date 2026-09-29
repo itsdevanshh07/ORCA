@@ -2,13 +2,14 @@ server:
   port: ${PORT:8080} 
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     driver-class-name: org.postgresql.Driver
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     show-sql: false 
@@ -16,10 +17,16 @@ spring:
   ai:
     google:
       genai:
-        api-key: ${GEMINI_API_KEY}
+        api-key: ${GEMINI_API_KEY:}
         chat:
           options:
-            model: gemini-1.5-flash 
+            model: gemini-2.5-flash
+            response-mime-type: application/json
+            temperature: 0.1
+
+orca:
+  healing:
+    timeout: ${ORCA_HEALING_TIMEOUT:PT25S}
 
 resilience4j:
   circuitbreaker:

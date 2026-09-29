@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -38,11 +40,17 @@ public class SecurityConfig {
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers(HttpMethod.OPTIONS).permitAll() // Crucial for Preflight
                 .pathMatchers("/api/auth/**").permitAll()   
-                .anyExchange().permitAll() // Temporarily open everything to test
+                .pathMatchers("/api/projects/**", "/api/metrics/**", "/api/surgeries/**", "/api/orca/**").authenticated()
+                .anyExchange().permitAll() // Proxy authentication is enforced by ApiKeyFilter.
             )
             // Ensure the filter is only active for authenticated routes
             .addFilterAt(jwtAuthFilter, SecurityWebFiltersOrder.AUTHENTICATION)
             .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
     @Bean

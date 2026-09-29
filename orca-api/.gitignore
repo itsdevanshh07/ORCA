@@ -6,9 +6,6 @@ target/
 *.ear
 
 # Maven
-.mvn/
-mvnw
-mvnw.cmd
 
 # IDE Specific
 .vscode/

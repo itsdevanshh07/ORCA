@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker; 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
@@ -38,8 +39,10 @@ public class OrcaProxyController {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public OrcaProxyController(WebClient.Builder webClientBuilder) {
-        this.webClient = webClientBuilder.baseUrl("https://jsonplaceholder.typicode.com").build();
+    public OrcaProxyController(
+            WebClient.Builder webClientBuilder,
+            @Value("${ORCA_TARGET_API_BASE_URL:https://jsonplaceholder.typicode.com}") String targetApiBaseUrl) {
+        this.webClient = webClientBuilder.baseUrl(targetApiBaseUrl).build();
     }
 
     @GetMapping("/posts/{id}")
@@ -67,7 +70,8 @@ public class OrcaProxyController {
                         // THE CACHE CHECK 
                         String cachedPatch = patchCacheManager.getCachedPatch(errorSignature);
 
-                        if (cachedPatch != null) {
+                        boolean cacheHit = cachedPatch != null;
+                        if (cacheHit) {
                             log.info("ORCA: CACHE HIT! Bypassing AI. Applying cached patch instantly.");
                             healingMapStr = cachedPatch;
                             statusFlag = "CACHED_PATCH"; 
@@ -76,7 +80,7 @@ public class OrcaProxyController {
                             healingMapStr = aiHealingService.getHealedMapping(responseBody, errorSignature);
                             
                             // Save it 
-                            patchCacheManager.savePatch(errorSignature, healingMapStr);
+                            if (healingMapStr == null) return responseBody;
                             statusFlag = "AI_GENERATED_PATCH";
                         }
 
@@ -92,6 +96,14 @@ public class OrcaProxyController {
                                 healedObject.setAll((com.fasterxml.jackson.databind.node.ObjectNode) healingNodes);
                                 
                                 String finalHealedJson = objectMapper.writeValueAsString(healedObject);
+
+                                if (!schemaValidator.getValidationErrors(finalHealedJson).isEmpty()) {
+                                    if (cacheHit) patchCacheManager.invalidatePatch(errorSignature);
+                                    log.warn("Gemini patch did not satisfy the schema; returning original payload.");
+                                    return responseBody;
+                                }
+
+                                if (!cacheHit) patchCacheManager.savePatch(errorSignature, healingMapStr);
                                 
                                 TenantProject project = exchange.getAttribute("AUTHORIZED_PROJECT");
                                 String projectName = (project != null) ? project.getProjectName() : "Default Workspace";
@@ -115,7 +127,8 @@ public class OrcaProxyController {
                                 return finalHealedJson;
                             }
                         } catch (Exception e) {
-                            log.error("ORCA: Failed to apply healing map: {}", e.getMessage());
+                            if (cacheHit) patchCacheManager.invalidatePatch(errorSignature);
+                            log.warn("ORCA: Failed to apply healing map; returning original payload ({})", e.getClass().getSimpleName());
                         }
                         return responseBody;
                     }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());

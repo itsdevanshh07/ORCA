@@ -49,7 +49,7 @@ public class SchemaValidator {
                         .map(ValidationMessage::getMessage)
                         .collect(Collectors.toList());
                         
-                log.error("DRIFT DETECTED: {}", errors);
+                log.warn("DRIFT DETECTED: {}", errors);
                 return errors;
             }
             

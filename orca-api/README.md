@@ -1,9 +1,5 @@
-# Project O.R.C.A. 🐋
-**Operational Resilience & Cloud Adaptation**
+# ORCA API
 
-An AI-driven, Reactive API Gateway designed to detect and heal Schema Drift in real-time using Spring Cloud Gateway and Google Gemini.
+See the monorepo [setup and verification guide](../README.md). Spring Boot imports the local `.env` file during development and accepts ordinary environment variables for deployment. Start it with `./mvnw spring-boot:run` (Windows: `./mvnw.cmd spring-boot:run`).
 
-## 🛠️ Setup
-1. Set your Environment Variable: `export GEMINI_API_KEY=your_key_here`
-2. Run `./mvnw spring-boot:run`
-3. Access Metrics at `localhost:8080/api/orca/stats`
+For a Gemini API connectivity check, export `GEMINI_API_KEY` in the shell and run `python scripts/gemini-smoke-test.py`. For the authenticated end-to-end flow, run `python scripts/full-flow-smoke.py` while PostgreSQL, the API, and a working Gemini key are available.

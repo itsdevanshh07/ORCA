@@ -1,114 +1,84 @@
-# Project O.R.C.A. (Operational Resilience & Cloud Adaptation)
+# O.R.C.A.
 
-O.R.C.A. is an enterprise-grade, AI-powered Self-Healing API Gateway. Built on Spring Cloud Gateway and Next.js, it acts as a reverse proxy that detects JSON schema drift from downstream services and uses LLMs (Gemini 2.5 Flash) to patch broken payloads in real-time, preventing frontend crashes.
+O.R.C.A. (Operational Resilience & Cloud Adaptation) is a full-stack API gateway prototype. Its Spring Boot/WebFlux API proxies downstream JSON APIs, validates responses against a schema, and uses Gemini to create and cache a repair when fields drift. A Next.js dashboard supports signup, login, project/API-key management, healing metrics, and reverting a repair.
 
----
+## Stack
 
-## Architecture & Tech Stack
+- Java 17+, Spring Boot, Spring WebFlux, Spring Data JPA, PostgreSQL
+- Spring AI Google GenAI (`gemini-2.5-flash`)
+- Resilience4j circuit breaker
+- Next.js, React, Tailwind CSS
 
-This project is structured as a **Monorepo** containing both the gateway backend and the dashboard frontend.
+## Prerequisites
 
-### Backend (`/orca-api`)
-* **Framework:** Java, Spring Boot, Spring WebFlux
-* **Gateway:** Spring Cloud Gateway
-* **Resilience:** Resilience4j (Circuit Breakers)
-* **AI Engine:** Google Gemini GenAI SDK
-* **Database:** PostgreSQL (Spring Data JPA)
-* **Security:** Spring Security (JWT + Custom API Key Filters)
+- Java 17 or newer
+- Node.js 20.9 or newer and npm
+- PostgreSQL 14 or newer
+- A Gemini API key for live healing (the rest of the app can start without a usable key, but healing calls will fall back to the original response)
 
-### Frontend (`/orca-frontend`)
-* **Framework:** Next.js (React), App Router
-* **Styling:** Tailwind CSS
-* **Icons:** Lucide React
-* **Charts:** Recharts 
+## Local setup
 
----
+### 1. Create a PostgreSQL database
 
-## Getting Started
+Create a database named `orca`, for example in `psql`:
 
-### Prerequisites
-* Java 17+
-* Node.js 18+
-* PostgreSQL running on port `5432`
-* Google Gemini API Key
+```sql
+CREATE DATABASE orca;
+```
 
-### 1. Backend Setup (`/orca-api`)
-1. Navigate to the backend directory: `cd orca-api`
-2. Create a `.env` file in the `orca-api` root with the following keys:
-   ```env
-   POSTGRES_PASSWORD=your_db_password
-   GEMINI_API_KEY=your_gemini_api_key
-   JWT_SECRET=your_super_secret_jwt_key
-3. Ensure PostgreSQL has a database named orca_db.
-4. Run the server:
-    ./mvnw spring-boot:run
-    The backend runs on http://localhost:8080.
+### 2. Configure the API
 
-### 1. Frontend Setup (`/orca-frontend`)
-1. Navigate to the frontend directory:
-       cd orca-frontend
-3. Install dependencies:
-       npm install
-4. Run the development server:
-       npm run dev
-    The frontend runs on http://localhost:3000.
+From `orca-api`, copy `.env.example` to `.env` (`cp .env.example .env`; Windows PowerShell: `Copy-Item .env.example .env`) and set the database URL, username, password, Gemini key, and a private JWT secret. Spring Boot imports this file through `application.yml`; ordinary environment variables are also supported and take precedence. Do not commit `.env`.
 
-### Security Model
-O.R.C.A. utilizes a Dual-Filter Security Chain. If you are adding new endpoints, you must map them correctly to avoid 401 Unauthorized errors.
+Generate a JWT secret locally, for example with `openssl rand -base64 48`, and put the result in `JWT_SECRET`. The value must be at least 32 bytes when encoded as UTF-8.
 
-1. ApiKeyFilter.java (External Traffic): * Protects downstream proxy routes (e.g., /posts/).
-    Expects an x-api-key header mapped to a Tenant Project in the DB.
-    Bypasses internal dashboard endpoints.
+Start the API from `orca-api`:
 
-2. JwtAuthFilter.java (Internal Traffic): * Protects the Next.js Dashboard routes (/api/orca/, /api/metrics, /api/surgeries).
-    Expects an Authorization: Bearer <token> header.
+```bash
+./mvnw spring-boot:run
+```
 
---> Adding a new Dashboard Endpoint? > You MUST add the path to the bypass list in ApiKeyFilter.java AND ensure it requires authentication in SecurityConfig.java.
+On Windows, use `./mvnw.cmd spring-boot:run`. The API listens on `http://localhost:8080`.
 
-### API Documentation
-1. Gateway Proxy Endpoints (Client Facing)
-These endpoints proxy traffic to downstream services and trigger the AI healing mechanism on failure.
+### 3. Configure and start the frontend
 
-    GET /posts/{id}
-        Controller : OrcaProxyController.java
-        Headers Req: x-api-key
-        Flow       : Calls downstream API -> Validates Schema -> If drift detected, checks Cache -> If cache miss, triggers AI Surgeon -> Saves Patch -> Returns Healed JSON.
+From `orca-frontend`, copy `.env.example` to `.env.local`. Set `NEXT_PUBLIC_API_URL` to the API's browser-reachable base URL; this value is public and must not contain secrets.
 
-2. Internal Dashboard Endpoints (Frontend Facing)
-These endpoints feed the Next.js dashboard. All require the Authorization: Bearer <jwt_token> header.
+```bash
+npm ci
+npm run dev
+```
 
-    GET /api/orca/stats?projectId={id}
-        Controller: OrcaMetricsController.java
-        Description: Returns high-level dashboard metrics (Total Heals, Latency, Status).
+The dashboard listens on `http://localhost:3000`. Open `/signup` to create an account, then `/login` or `/projects` to access workspaces.
 
-    GET /api/metrics?projectId={id}
-        Controller: OrcaProxyController.java
-        Description: Returns the chronological list of HealingRecord logs for the surgery table.
+## Verification
 
-    POST /api/surgeries/{id}/revert
-        Controller: OrcaProxyController.java
-        Description: Allows a developer to reject an AI-generated patch, changing its status to REJECTED_BY_DEV and invalidating it in the PatchCacheManager.
+Run backend verification:
 
-    GET /api/projects (Implicitly exists based on logs)
-        Description: Fetches the list of workspaces/projects available to the logged-in user.
+```bash
+cd orca-api
+./mvnw clean verify
+```
 
-### Key Directory Guide
-Backend (orca-api/src/main/java/com/example/demo/)
-    /security
-        ApiKeyFilter.java - Gatekeeper for external API calls.
-        JwtAuthFilter.java - Gatekeeper for internal Dashboard calls.
-        SecurityConfig.java - CORS and Route mapping rules.
+Run frontend verification:
 
-    Controllers:  
-        OrcaProxyController.java - The main reverse proxy and AI trigger mechanism.
-        OrcaMetricsController.java - Aggregation for frontend charts.
+```bash
+cd orca-frontend
+npm ci
+npm run build
+```
 
-    Services:  
-        AiHealingService.java - Connects to Gemini to generate JSON schema patches.
-        PatchCacheManager.java - In-memory/Redis cache for instant O(1) patch lookups.
+To check Gemini independently, export `GEMINI_API_KEY` in the current shell and run `python scripts/gemini-smoke-test.py` from `orca-api`. The script never prints the key or response body. With the API and PostgreSQL running and a valid Gemini key in the environment, `python scripts/full-flow-smoke.py` exercises signup, login, project creation, missing-auth checks, drift healing, cache reuse, and surgery revert. For a deterministic downstream fixture, run `python scripts/mock-downstream.py` and set `ORCA_TARGET_API_BASE_URL=http://127.0.0.1:8091` before starting the API.
 
-    Frontend (orca-frontend/app/)
-        /page.tsx - The public marketing/landing page.
-        /login/page.tsx - JWT generation and storage.
-        /signup/page.tsx - JWT generation and storage.
-        /dashboard/[projectId]/page.tsx - The main operational interface. Fetches stats and healing records using the stored orca_token.
+## API flow
+
+- `POST /api/auth/signup` and `POST /api/auth/login` issue JWTs.
+- `/api/projects`, `/api/orca/**`, `/api/metrics`, and `/api/surgeries/**` require a bearer JWT.
+- `GET /posts/{id}` requires the tenant's `x-api-key` header. The gateway checks schema drift, calls Gemini on a cache miss, and returns the original downstream body if generation fails or the repair is invalid.
+- `POST /api/surgeries/{id}/revert` marks the healing record `REJECTED_BY_DEV` and invalidates its cached patch.
+
+The default downstream API is JSONPlaceholder. Set `ORCA_TARGET_API_BASE_URL` in `orca-api/.env` to use another compatible service.
+
+## Deployment status
+
+This repository has no live frontend URL configured. The checked-in frontend example points to a local API URL for development. A deployment needs a reachable backend, managed PostgreSQL, server-side Gemini/JWT/database secrets, and a frontend `NEXT_PUBLIC_API_URL` set to the deployed API origin. No deployment has been performed.

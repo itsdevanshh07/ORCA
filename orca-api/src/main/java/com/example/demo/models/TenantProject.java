@@ -18,7 +18,7 @@ public class TenantProject {
     private String projectName;
 
     @Column(unique = true, nullable = false)
-    private String apiKey; // e.g., orca_live_9f8d7...
+    private String apiKey;
 
     private boolean active = true;
     private LocalDateTime createdAt = LocalDateTime.now();
