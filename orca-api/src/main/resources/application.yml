@@ -16,13 +16,13 @@ spring:
 
   ai:
     model:
-      chat: ${SPRING_AI_MODEL_CHAT:none}
+      chat: ${ORCA_GEMINI_PROVIDER:none}
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}
         chat:
           options:
-            model: gemini-2.5-flash
+            model: ${SPRING_AI_MODEL_CHAT:gemini-3.8-flash}
             response-mime-type: application/json
             temperature: 0.1
 

@@ -24,7 +24,8 @@ API service (Render):
 - `SPRING_DATASOURCE_PASSWORD`
 - `JWT_SECRET`
 - `GEMINI_API_KEY` (optional; healing falls back to the source payload when missing)
-- `SPRING_AI_MODEL_CHAT` (optional; set to `google-genai` when providing `GEMINI_API_KEY`; otherwise leave unset or use `none`)
+- `ORCA_GEMINI_PROVIDER` (optional; set to `google-genai` when providing `GEMINI_API_KEY`; otherwise leave unset or use `none`)
+- `SPRING_AI_MODEL_CHAT` (optional primary model; defaults to `gemini-3.8-flash`; on repeated 503/UNAVAILABLE the API tries `gemini-2.0-flash` once)
 - `ORCA_TARGET_API_BASE_URL` (optional; defaults to JSONPlaceholder)
 - `ORCA_CORS_ALLOWED_ORIGINS` (comma-separated browser origins; set to the Vercel deployment origin)
 - `ORCA_HEALING_TIMEOUT` (optional; defaults to PT25S)

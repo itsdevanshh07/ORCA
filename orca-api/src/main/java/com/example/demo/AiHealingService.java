@@ -2,6 +2,7 @@ package com.example.demo;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -21,15 +22,20 @@ public class AiHealingService {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int MAX_UNAVAILABLE_RETRIES = 2;
     private static final long RETRY_DELAY_MILLIS = 1_000;
+    private static final String FALLBACK_MODEL = "gemini-2.0-flash";
 
     private final ChatClient chatClient;
+    private final ChatModel chatModel;
+
+    @Value("${spring.ai.google.genai.chat.options.model:gemini-3.8-flash}")
+    private String primaryModel;
 
     @Value("${orca.healing.timeout:PT25S}")
     private Duration timeout;
 
     public AiHealingService(ObjectProvider<ChatModel> models) {
-        ChatModel model = models.getIfAvailable();
-        this.chatClient = model == null ? null : ChatClient.create(model);
+        this.chatModel = models.getIfAvailable();
+        this.chatClient = chatModel == null ? null : ChatClient.create(chatModel);
     }
 
     public String getHealedMapping(String brokenJson, String missingFields) {
@@ -47,8 +53,8 @@ public class AiHealingService {
             CRITICAL: Return ONLY a valid JSON object. No markdown or conversational text.
             """.formatted(missingFields, brokenJson);
 
-        CompletableFuture<String> request = CompletableFuture.supplyAsync(() -> callWithUnavailableRetries(
-                () -> chatClient.prompt().user(prompt).call().content(), Thread::sleep));
+        CompletableFuture<String> request = CompletableFuture.supplyAsync(
+                () -> callPrimaryThenFallback(prompt));
         try {
             String result = request.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
             return parseJsonObject(result);
@@ -57,6 +63,34 @@ public class AiHealingService {
             log.warn("Gemini healing unavailable; preserving downstream payload ({})", e.getClass().getSimpleName());
             return null;
         }
+    }
+
+    private String callPrimaryThenFallback(String prompt) {
+        try {
+            String response = callWithUnavailableRetries(
+                    () -> callModel(prompt, primaryModel), Thread::sleep);
+            log.info("Gemini healing response served by model {}.", primaryModel);
+            return response;
+        } catch (RuntimeException primaryError) {
+            if (!isUnavailable(primaryError)) {
+                throw primaryError;
+            }
+            log.warn("Primary Gemini model {} remained unavailable after retries; trying fallback model {}.",
+                    primaryModel, FALLBACK_MODEL);
+            String response = callModel(prompt, FALLBACK_MODEL);
+            log.info("Gemini healing response served by model {}.", FALLBACK_MODEL);
+            return response;
+        }
+    }
+
+    private String callModel(String prompt, String modelName) {
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) chatModel.getDefaultOptions().copy();
+        options.setModel(modelName);
+        return chatClient.prompt()
+                .options(options)
+                .user(prompt)
+                .call()
+                .content();
     }
 
     static String callWithUnavailableRetries(Supplier<String> call, Sleeper sleeper) {
